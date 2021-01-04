@@ -223,6 +223,7 @@ static void *taosAcceptTcpConnection(void *arg) {
   int                threadId = 0;
   SThreadObj        *pThreadObj;
   SServerObj        *pServerObj;
+  int32_t bufSize = 128 * 1024;
 
   pServerObj = (SServerObj *)arg;
   tDebug("%s TCP server is ready, ip:0x%x:%hu", pServerObj->label, pServerObj->ip, pServerObj->port);
@@ -241,15 +242,26 @@ static void *taosAcceptTcpConnection(void *arg) {
     }
 
     taosKeepTcpAlive(connFd);
-    struct timeval to={1, 0};
-    int32_t ret = taosSetSockOpt(connFd, SOL_SOCKET, SO_RCVTIMEO, &to, sizeof(to));
-    if (ret != 0) {
+
+    struct timeval to={10, 0};
+    if (taosSetSockOpt(connFd, SOL_SOCKET, SO_RCVTIMEO, &to, sizeof(to)) != 0) {
       taosCloseSocket(connFd);
       tError("%s failed to set recv timeout fd(%s)for connection from:%s:%hu", pServerObj->label, strerror(errno),
              taosInetNtoa(caddr.sin_addr), htons(caddr.sin_port));
       continue;
     }
     
+    if (taosSetSockOpt(connFd, SOL_SOCKET, SO_SNDBUF, (void *)&bufSize, sizeof(bufSize)) != 0) {
+        taosCloseSocket(connFd);
+        tError("failed to set the send buffer size for TCP socket\n");
+        continue;
+    }
+
+    if (taosSetSockOpt(connFd, SOL_SOCKET, SO_RCVBUF, (void *)&bufSize, sizeof(bufSize)) != 0) {
+        taosCloseSocket(connFd);
+        tError("failed to set the receive buffer size for TCP socket\n");
+        continue;
+    }
 
     // pick up the thread to handle this connection
     pThreadObj = pServerObj->pThreadObj[threadId];
