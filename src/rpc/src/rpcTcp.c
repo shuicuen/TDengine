@@ -513,6 +513,7 @@ static void *taosProcessTcpData(void *param) {
       }
 
       if (taosReadTcpData(pFdObj, &recvInfo) < 0) {
+        tDebug("%s %p FD:%p hang up", pThreadObj->label, pFdObj->thandle, pFdObj);
         shutdown(pFdObj->fd, SHUT_WR); 
         continue;
       }

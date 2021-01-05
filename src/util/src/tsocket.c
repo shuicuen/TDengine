@@ -133,6 +133,7 @@ int32_t taosReadMsg(SOCKET fd, void *buf, int32_t nbytes) {
   char *  ptr = (char *)buf;
 
   nleft = nbytes;
+  int64_t st = taosGetTimestampMs(); 
 
   if (fd < 0) return -1;
 
@@ -143,7 +144,22 @@ int32_t taosReadMsg(SOCKET fd, void *buf, int32_t nbytes) {
     } else if (nread < 0) {
       if (errno == EINTR/* || errno == EAGAIN || errno == EWOULDBLOCK*/) {
         continue;
+      } else if (errno == EAGAIN || errno == EWOULDBLOCK){
+        int64_t et = taosGetTimestampMs(); 
+        if (et - st > 8*1000) {
+            uError("xxx My God: read timeout %ldms", et - st);
+        } else {
+            uError("xxx My God: read error with error:%s", tstrerror(errno));
+        }
+         
+        return -1;
       } else {
+        int64_t et = taosGetTimestampMs(); 
+        if (et - st > 8*1000) {
+            uError("yyy My God: read timeout %ldms", et - st);
+        } else {
+            uError("yyy My God: read error with error:%s", tstrerror(errno));
+        } 
         return -1;
       }
     } else {
